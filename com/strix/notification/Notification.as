@@ -18,6 +18,16 @@ package com.strix.notification {
         }
         
         
+        public function reset() : void {
+            if( callbacks == null )
+                return;
+            
+            callbacks = new Vector.<Function>;
+            contexts = new Vector.<Object>,
+            types = new Vector.<uint>;
+        }
+        
+        
         public function addListener( notification:uint, callback:Function, context:Object=null ) : Notification {
             if( callbacks == null ) {
                 initialize();

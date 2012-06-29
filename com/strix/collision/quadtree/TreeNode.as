@@ -1,11 +1,9 @@
 package com.strix.collision.quadtree {
     
-    import com.strix.collision.Collidable;
+    import com.strix.collision.Agent;
     import com.strix.collision.Collision;
-    import com.strix.collision.CollisionMask;
-    import com.strix.collision.PointQuery;
+    import com.strix.collision.Mask;
     import com.strix.collision.Volume;
-    import com.strix.collision.VolumeQuery;
     import com.strix.collision.error.IllegalBoundsError;
     import com.strix.collision.error.InternalError;
     import com.strix.notification.Notification;
@@ -30,7 +28,7 @@ package com.strix.collision.quadtree {
             children : Vector.<TreeNode>;
         
         public var
-            objects       : Vector.<Collidable>,
+            objects       : Vector.<Agent>,
             objectChanged : Vector.<Function>;
         
             
@@ -49,14 +47,14 @@ package com.strix.collision.quadtree {
             this.root = root;
             this.children = new Vector.<TreeNode>(4, true);
             
-            this.objects = new Vector.<Collidable>;
+            this.objects = new Vector.<Agent>;
             this.objectChanged = new Vector.<Function>;
             
             this.mode = mode;
         }
         
         
-        public function addObject( object:Collidable, readd:Boolean=false ) : TreeNode {
+        public function addObject( object:Agent, readd:Boolean=false ) : TreeNode {
             if( Quadtree.throwExceptions && !Volume.containBoxBox(volume, object.volume) )
                 throw new IllegalBoundsError("Attempted to insert and object with, or update an object to, illegal bounds.");
             
@@ -104,7 +102,7 @@ package com.strix.collision.quadtree {
         }
 
         
-        private function addObjectToSelf( object:Collidable, readd:Boolean=false ) : TreeNode {
+        private function addObjectToSelf( object:Agent, readd:Boolean=false ) : TreeNode {
             if( readd )
                 return this;
             
@@ -141,7 +139,7 @@ package com.strix.collision.quadtree {
         }
         
         
-        public function queryVolume( query:VolumeQuery, objectIDs:Vector.<uint> ) : void {
+        public function queryVolume( query:Volume, mask:uint, objectIDs:Vector.<Agent> ) : void {
             var quad       : uint,
                 quadVolume : Volume = new Volume(
                     volume.x-volume.rx*0.5,
@@ -152,8 +150,8 @@ package com.strix.collision.quadtree {
 
             //Collect all object IDs intersected by the query
             for( var object : uint = 0; object < objects.length; object++ ) {
-                if( Volume.intersectBoxBox(query.volume, objects[object].volume) &&
-                    query.mask.interactsWith(objects[object].mask) ) {
+                if( Volume.intersectBoxBox(query, objects[object].volume) &&
+                    Mask.interacts(mask, objects[object].mask) ) {
                     objectIDs.push(objects[object].id);
                 }
             }
@@ -163,8 +161,8 @@ package com.strix.collision.quadtree {
                 for( var qx : uint = 0; qx < 2; qx++ ) {
                     quadVolume.translate(qx*volume.rx, qy*volume.rx);
 
-                    if( children[quad] != null && Volume.intersectBoxBox(query.volume, quadVolume) )
-                        children[quad].queryVolume(query, objectIDs);
+                    if( children[quad] != null && Volume.intersectBoxBox(volume, quadVolume) )
+                        children[quad].queryVolume(query, mask, objectIDs);
                     
                     quad++;
                 }
@@ -172,7 +170,7 @@ package com.strix.collision.quadtree {
         }
         
         
-        public function queryPoint( query:PointQuery, objectIDs:Vector.<uint> ) : void {
+        public function queryPoint( point:Volume, mask:uint, objectIDs:Vector.<Agent> ) : void {
             var quad       : uint,
                 quadVolume : Volume = new Volume(
                     volume.x-volume.rx*0.5,
@@ -183,8 +181,8 @@ package com.strix.collision.quadtree {
             
             //Collect all object IDs intersected by the query
             for( var object : uint = 0; object < objects.length; object++ ) {
-                if( Volume.containBoxPoint(objects[object].volume, query.volume) &&
-                    query.mask.interactsWith(objects[object].mask) ) {
+                if( Volume.containBoxPoint(objects[object].volume, point) &&
+                    Mask.interacts(mask, objects[object].mask) ) {
                     objectIDs.push(objects[object].id);
                 }
             }
@@ -195,8 +193,8 @@ package com.strix.collision.quadtree {
                     quadVolume.translate(qx*volume.rx, qy*volume.rx);
                     
                     if( children[quad] != null &&
-                        Volume.containBoxPoint(quadVolume, query.volume) ) {
-                            children[quad].queryPoint(query, objectIDs);
+                        Volume.containBoxPoint(quadVolume, point) ) {
+                            children[quad].queryPoint(point, mask, objectIDs);
                     }
                     
                     quad++;
@@ -210,7 +208,7 @@ package com.strix.collision.quadtree {
             for( var i : uint = 0; i < objects.length-1; i++ ) {
                 for( var j : uint = i+1; j < objects.length; j++ ) {
                     if( Volume.intersectBoxBox(objects[i].volume, objects[j].volume) &&
-                        objects[i].mask.interactsWith(objects[j].mask) ) {
+                        Mask.interacts(objects[i].mask, objects[j].mask) ) {
                         collisions.push(new Collision(objects[i], objects[j]));
                     }
                 }
@@ -223,7 +221,7 @@ package com.strix.collision.quadtree {
                 for( i = 0; i < objects.length; i++ ) {
                     for( j = 0; j < ancestor.objects.length; j++ ) {
                         if( Volume.intersectBoxBox(objects[i].volume, ancestor.objects[j].volume) &&
-                            objects[i].mask.interactsWith(ancestor.objects[j].mask) ) {
+                            Mask.interacts(objects[i].mask, ancestor.objects[j].mask) ) {
                             collisions.push(new Collision(objects[i], ancestor.objects[j]));
                         }
                     }
@@ -240,7 +238,7 @@ package com.strix.collision.quadtree {
         }
         
         
-        public function deleteObject( object:Collidable ) : void {
+        public function deleteObject( object:Agent ) : void {
             for( var i : uint = 0; i < objects.length; i++ ) {
                 if( objects[i].id == object.id ) {
                     objects[i].volume.onChange.removeListener(Notification.ALL, objectChanged[i]);

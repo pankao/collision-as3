@@ -41,7 +41,7 @@ package com.strix.collision.quadtree {
             
             var treeNode : TreeNode = pool[poolItem];
             
-            delete pool[poolItem--];
+            pool[poolItem--] = null;
             
             treeNode.volume = volume;
             treeNode.depth = depth;

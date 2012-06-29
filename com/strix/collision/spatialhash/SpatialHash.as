@@ -1,11 +1,9 @@
 package com.strix.collision.spatialhash {
     
-    import com.strix.collision.Collidable;
+    import com.strix.collision.Agent;
     import com.strix.collision.Collision;
-    import com.strix.collision.CollisionMask;
-    import com.strix.collision.PointQuery;
+    import com.strix.collision.Mask;
     import com.strix.collision.Volume;
-    import com.strix.collision.VolumeQuery;
     import com.strix.collision.error.IllegalBoundsError;
     import com.strix.collision.error.InvalidObjectError;
     import com.strix.hashtable.Hashtable;
@@ -25,7 +23,7 @@ package com.strix.collision.spatialhash {
             mode            : uint,
             object          : Hashtable,
             filter          : CountingBloomfilter,
-            bucket          : Vector.<Vector.<Collidable>>,
+            bucket          : Vector.<Vector.<Agent>>,
             bucketMod       : uint,
             bucketTimestamp : Vector.<uint>,
             timestamp       : uint, 
@@ -40,10 +38,10 @@ package com.strix.collision.spatialhash {
             this.filter  = new CountingBloomfilter(32768);
             this.resolutionLog2 = Math.log(resolution)*Math.LOG2E;
             
-            this.bucket = new Vector.<Vector.<Collidable>>(buckets, true);
+            this.bucket = new Vector.<Vector.<Agent>>(buckets, true);
             
             for( var i : uint = 0; i < buckets; i++ ) {
-                this.bucket[i] = new Vector.<Collidable>;
+                this.bucket[i] = new Vector.<Agent>;
             }
             
             this.bucketTimestamp = new Vector.<uint>(buckets, true);
@@ -142,7 +140,7 @@ package com.strix.collision.spatialhash {
         }
         
         
-        public function addObject( collidable:Collidable ) : void {
+        public function addObject( collidable:Agent ) : void {
             if( collidable.volume.x1 < 0 ||
                 collidable.volume.y1 < 0 ||
                 collidable.volume.x2 >> resolutionLog2 > 65535 ||
@@ -190,11 +188,11 @@ package com.strix.collision.spatialhash {
         }
       
         
-        public function deleteObject( collidable:Collidable ) : void {
+        public function deleteObject( collidable:Agent ) : void {
             if( throwExceptions && object[collidable.id] == null )
                 throw new InvalidObjectError("Object with ID " + collidable.id + " does not exist.");
             
-            var collidable  : Collidable = object[collidable.id],
+            var collidable  : Agent = object[collidable.id],
                 numBuckets  : uint = collidable.buckets.length,
                 bucketIndex : uint,
                 bucketSize  : uint;
@@ -217,7 +215,7 @@ package com.strix.collision.spatialhash {
         }
             
    
-        private function updateObject( collidable:Collidable ) : void {
+        private function updateObject( collidable:Agent ) : void {
             var x1 : uint = collidable.volume.x1 >> resolutionLog2,
                 x2 : uint = collidable.volume.x2 >> resolutionLog2,
                 y1 : uint = collidable.volume.y1 >> resolutionLog2,
@@ -268,28 +266,28 @@ package com.strix.collision.spatialhash {
         }
    
         
-        public function queryVolume( volumeQuery:VolumeQuery, collisions:Vector.<Collision>=null, deduplicate:Boolean=true ) : Vector.<Collision> {
-            var queryCells   : Vector.<uint> = volumeToFilteredCells(volumeQuery.volume),
+        public function queryVolume( volume:Volume, mask:uint, collisions:Vector.<Agent>=null, deduplicate:Boolean=true ) : Vector.<Agent> {
+            var queryCells   : Vector.<uint> = volumeToFilteredCells(volume),
                 queryBuckets : Vector.<uint> = cellsToBuckets(queryCells);
             
             if( collisions == null ) {
-                collisions = new Vector.<Collision>;
+                collisions = new Vector.<Agent>;
             }
             
             for each( var queryBucket : uint in queryBuckets ) {
-                for each( var object : Collidable in bucket[queryBucket] ) {
-                    if( !CollisionMask.interacts(volumeQuery.mask, object.mask) ) {
+                for each( var object : Agent in bucket[queryBucket] ) {
+                    if( !Mask.interacts(mask, object.mask) ) {
                         continue;
                     }
                     
                     if( mode == DISCRETE_MODE &&
-                        Volume.intersectBoxBox(volumeQuery.volume, object.volume) ) {
-                            collisions.push(new Collision(volumeQuery, object));
+                        Volume.intersectBoxBox(volume, object.volume) ) {
+                            collisions.push(object);
                     }
                         
                     if( mode == CONTINUOUS_MODE &&
-                        Volume.intersectSweptBoxBox(volumeQuery.volume, object.volume) ) {
-                            collisions.push(new Collision(volumeQuery, object));
+                        Volume.intersectSweptBoxBox(volume, object.volume) ) {
+                            collisions.push(object);
                     }
                 }
             }
@@ -297,7 +295,7 @@ package com.strix.collision.spatialhash {
 
             if( collisions.length > 0 ) {
                 if( deduplicate ) {
-                    collisions = uniqueCollisions(collisions);
+                    collisions = uniqueAgents(collisions);
                 }
                 
                 return collisions;
@@ -307,9 +305,9 @@ package com.strix.collision.spatialhash {
         }
 
         
-        public function queryPoint( pointQuery:PointQuery, collisions:Vector.<Collision>=null ) : Vector.<Collision> {
-            var x    : uint = pointQuery.volume.x >> resolutionLog2,
-                y    : uint = pointQuery.volume.x >> resolutionLog2,
+        public function queryPoint( point:Volume, mask:uint, collisions:Vector.<Collision>=null ) : Vector.<Collision> {
+            var x    : uint = point.x >> resolutionLog2,
+                y    : uint = point.y >> resolutionLog2,
                 cell : uint = hash((y*65535) + x);
 
             if( !filter.isMember(cell, true) ) {
@@ -322,13 +320,13 @@ package com.strix.collision.spatialhash {
             
             var queryBucket : uint = cell & bucketMod;
             
-            for each( var object : Collidable in bucket[queryBucket] ) {
-                if( !CollisionMask.interacts(pointQuery.mask, object.mask) ) {
+            for each( var object : Agent in bucket[queryBucket] ) {
+                if( !Mask.interacts(mask, object.mask) ) {
                     continue;
                 }
                 
-                if( Volume.containBoxPoint(object.volume, pointQuery.volume) ) {
-                    collisions.push(new Collision(pointQuery, object));
+                if( Volume.containBoxPoint(object.volume, point) ) {
+                    collisions.push(object);
                 }
             }
 
@@ -350,21 +348,35 @@ package com.strix.collision.spatialhash {
                 
                 for( var j : uint = 0; j < objects-1; j++ ) {
                     for( var k : uint = j+1; k < objects; k++ ) {
-                        var objectA : Collidable = bucket[i][j],
-                            objectB : Collidable = bucket[i][k];
+                        var objectA : Agent = bucket[i][j],
+                            objectB : Agent = bucket[i][k];
                         
-                        if( !CollisionMask.interacts(objectA.mask, objectB.mask) ) {
+                        if( !Mask.interacts(objectA.mask, objectB.mask) ) {
                             continue;
                         }
                         
                         if( mode == DISCRETE_MODE &&
                             Volume.intersectBoxBox(objectA.volume, objectB.volume) ) {
-                                collisions.push(new Collision(objectA, objectB));
+                                collisions.push(
+                                    new Collision(
+                                        objectA,
+                                        objectB,
+                                        Mask.actions(objectA.mask, objectB.mask),
+                                        Mask.actions(objectB.mask, objectA.mask)
+                                    )
+                                );
                         }
                         
                         if( mode == CONTINUOUS_MODE &&
                             Volume.intersectSweptBoxBox(objectA.volume, objectB.volume) ) {
-                                collisions.push(new Collision(objectA, objectB));
+                                collisions.push(
+                                    new Collision(
+                                        objectA,
+                                        objectB,
+                                        Mask.actions(objectA.mask, objectB.mask),
+                                        Mask.actions(objectB.mask, objectA.mask)
+                                    )
+                                );
                         }
                     }
                 }
@@ -398,6 +410,39 @@ package com.strix.collision.spatialhash {
             
             var deduplicated : Vector.<Collision> = new Vector.<Collision>,
                 current      : Collision = vector[0];
+            
+            deduplicated.push(current);
+            
+            for( var i : uint = 1; i < vector.length; i++ ) {
+                if( vector[i] != current ) {
+                    current = vector[i];
+                    deduplicated.push(current);
+                }
+            }
+            
+            return deduplicated;
+        }
+        
+        
+        public static function uniqueAgents( vector:Vector.<Agent> ) : Vector.<Agent> {
+            if( vector.length == 0 ) {
+                return vector;
+            }
+            
+            vector.sort(
+                function( agentA:Agent, agentB:Agent ) : int {
+                    if( agentA.id < agentB.id )
+                        return -1;
+                    
+                    if( agentA.id > agentA.id )
+                        return 1;
+                    
+                    return 0;
+                }
+            );
+            
+            var deduplicated : Vector.<Agent> = new Vector.<Agent>,
+                current      : Agent = vector[0];
             
             deduplicated.push(current);
             
