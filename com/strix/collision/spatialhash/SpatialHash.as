@@ -6,6 +6,7 @@ package com.strix.collision.spatialhash {
     import com.strix.collision.Volume;
     import com.strix.collision.error.IllegalBoundsError;
     import com.strix.collision.error.InvalidObjectError;
+    import com.strix.collision.pool.VolumePool;
     import com.strix.hashtable.Hashtable;
     import com.strix.notification.Notification;
     
@@ -292,6 +293,9 @@ package com.strix.collision.spatialhash {
                 }
             }
             
+            if( volume.disposable ) {
+                VolumePool.reclaim(volume);
+            }
 
             if( collisions.length > 0 ) {
                 if( deduplicate ) {
@@ -328,6 +332,10 @@ package com.strix.collision.spatialhash {
                 if( Volume.containBoxPoint(object.volume, point) ) {
                     collisions.push(object);
                 }
+            }
+            
+            if( point.disposable ) {
+                VolumePool.reclaim(point);
             }
 
             if( collisions.length > 0 ) {

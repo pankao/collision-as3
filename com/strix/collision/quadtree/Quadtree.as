@@ -7,6 +7,7 @@ package com.strix.collision.quadtree {
     import com.strix.collision.error.IllegalBoundsError;
     import com.strix.collision.error.InvalidObjectError;
     import com.strix.collision.error.InvalidVolumeError;
+    import com.strix.collision.pool.VolumePool;
     import com.strix.hashtable.Hashtable;
    
     
@@ -63,6 +64,10 @@ package com.strix.collision.quadtree {
             
             rootNode.queryVolume(volume, mask, objects);
             
+            if( volume.disposable ) {
+                VolumePool.reclaim(volume);
+            }
+            
             if( objects.length > 0 ) {
                 return objects;
             }
@@ -78,6 +83,10 @@ package com.strix.collision.quadtree {
             var agents : Vector.<Agent> = new Vector.<Agent>;
             
             rootNode.queryPoint(point, mask, agents);
+            
+            if( point.disposable ) {
+                VolumePool.reclaim(point);
+            }
             
             if( agents.length > 0 ) {
                 return agents;
