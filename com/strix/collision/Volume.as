@@ -7,21 +7,27 @@ package com.strix.collision {
     
     public class Volume {
         
+        //Attributes
         public var
             x  : Number,
             y  : Number,
             rx : Number,
-            ry : Number;
-            
-        public var
+            ry : Number,
             sx : Number,
             sy : Number;
         
+        //Derived attributes
         public var
-            x1 : Number,
-            x2 : Number,
-            y1 : Number,
-            y2 : Number;
+            x1  : Number,
+            x2  : Number,
+            y1  : Number,
+            y2  : Number,
+            sx1 : Number,
+            sx2 : Number,
+            sy1 : Number,
+            sy2 : Number,
+            srx : Number,
+            sry : Number;
 
         public var
             onChange : Notification;
@@ -44,36 +50,36 @@ package com.strix.collision {
             this.y = y;
             this.rx = isNaN(rx) ? 0.0 : rx;
             this.ry = isNaN(ry) ? rx : ry;     
-            
-            this.x1 = 0.0;
-            this.x2 = 0.0;
-            this.y1 = 0.0;
-            this.y2 = 0.0;
-            
             this.sx = 0.0;
             this.sy = 0.0;
             
-            updateBounds();
+            update();
         }
         
         
-        public function updateBounds( sweptVolume:Boolean=false ) : void {
-            if( !sweptVolume ) {
-                x1 = x-rx;
-                x2 = x+rx;
-                y1 = y-ry;
-                y2 = y+ry;
-            } else {
-                x1 = Math.min(x, x+sx) - rx;
-                x2 = Math.max(x, x+sx) + rx;
-                y1 = Math.min(y, y+sy) - ry;
-                y2 = Math.max(y, y+sy) + ry;
+        public function update() : void {
+            x1 = sx1 = x-rx;
+            x2 = sx2 = x+rx;
+            y1 = sy1 = y-ry;
+            y2 = sy2 = y+ry;
+            srx = rx;
+            sry = ry;
+            
+            if( sx != 0.0 || sy != 0.0 ) {
+                sx1 += sx < 0.0 ? sx : 0.0;
+                sx2 += sx > 0.0 ? sx : 0.0;
+                sy1 += sy < 0.0 ? sy : 0.0;
+                sy2 += sy > 0.0 ? sy : 0.0;
+                srx += sx > 0.0 ? sx : -sx;
+                sry += sy > 0.0 ? sy : sy;
             }
         }
         
         
         public function get symmetric() : Boolean {
-            return Math.abs(rx-ry) < Utils.EPS;
+            var delta : Number = rx-ry;
+            
+            return (delta < 0 ? -delta : delta) < Utils.EPS;
         }
         
         
@@ -83,7 +89,7 @@ package com.strix.collision {
             this.sx = 0.0;
             this.sy = 0.0;
             
-            updateBounds();
+            update();
             onChange.dispatch(ON_MOVE, null);
         }
         
@@ -91,8 +97,10 @@ package com.strix.collision {
         public function translate( x:Number, y:Number ) : void {
             this.x += x;
             this.y += y;
+            this.sx = 0.0;
+            this.sy = 0.0;            
             
-            updateBounds();
+            update();
             onChange.dispatch(ON_TRANSLATE, null);
         }
         
@@ -101,7 +109,7 @@ package com.strix.collision {
             this.sx = x;
             this.sy = y;
             
-            updateBounds(true);
+            update();
             onChange.dispatch(ON_SWEEP, null);
         }
         
@@ -112,17 +120,17 @@ package com.strix.collision {
             this.sx = 0.0;
             this.sy = 0.0;
                 
-            updateBounds();
+            update();
             
             onChange.dispatch(ON_RESIZE, null);
         }
         
         
         public static function intersectBoxBox( a:Volume, b:Volume ) : Boolean {
-            if( a.x2 < b.x1 || a.x1 > b.x2 )
+            if( a.sx2 < b.sx1 || a.sx1 > b.sx2 )
                 return false;
             
-            if( a.y2 < b.y1 || a.y1 > b.y2 )
+            if( a.sy2 < b.sy1 || a.sy1 > b.sy2 )
                 return false;
             
             return true;
@@ -133,10 +141,10 @@ package com.strix.collision {
             if( !circle.symmetric )
                 throw new InvalidVolumeError("circle must be a symmetric bounding volume")
             
-            if( circle.x < box.x1-circle.rx || circle.x > box.x2+circle.rx )
+            if( circle.x < box.sx1-circle.srx || circle.x > box.sx2+circle.srx )
                 return false;
             
-            if( circle.y < box.y1-circle.ry || circle.y > box.y2+circle.ry )
+            if( circle.y < box.sy1-circle.sry || circle.y > box.sy2+circle.sry )
                 return false;
             
             return true;
@@ -147,7 +155,7 @@ package com.strix.collision {
             if( !a.symmetric || !b.symmetric )
                 throw new InvalidVolumeError("circle must be a symmetric bounding volumes")
             
-            var rs2 : Number = a.rx*a.rx + b.rx*b.rx,
+            var rs2 : Number = a.srx*a.srx + b.srx*b.srx,
                 dot : Number = a.x*b.x + a.y*b.y;
             
             return dot <= rs2;
@@ -155,41 +163,36 @@ package com.strix.collision {
         
         
         public static function intersectSweptBoxBox( a:Volume, b:Volume ) : Boolean {
-            var ax1 : Number = a.x1 - a.sx,
-                ax2 : Number = a.x2 - a.sx,
-                ay1 : Number = a.y1 - a.sy,
-                ay2 : Number = a.y2 - a.sy,
-                bx1 : Number = b.x1 - b.sx,
-                bx2 : Number = b.x2 - b.sx,
-                by1 : Number = b.y1 - b.sy,
-                by2 : Number = b.y2 - b.sy;
-            
             var sx : Number = b.sx - a.sx,
                 sy : Number = b.sy - a.sy,
                 t1 : Number = 0.0,
                 t2 : Number = 1.0;
             
+            if( sx == 0.0 && sy == 0.0 ) {
+                return intersectBoxBox(a, b);
+            }
+            
             if( sx < 0.0 ) {
-                if( bx2 < ax1 ) return false;
-                if( ax2 < bx1 ) t1 = Math.max((ax2-bx1) / sx, t1);
-                if( bx2 > ax1 ) t2 = Math.min((ax1-bx2) / sx, t2);
+                if( b.sx2 < a.sx1 ) return false;
+                if( a.sx2 < b.sx1 ) t1 = Math.max((a.sx2-b.sx1) / sx, t1);
+                if( b.sx2 > a.sx1 ) t2 = Math.min((a.sx1-b.sx2) / sx, t2);
             } else if( sx > 0.0 ) {
-                if( bx1 > ax2 ) return false;
-                if( bx2 < ax1 ) t1 = Math.max((ax1-bx2) / sx, t1);
-                if( ax2 > bx1 ) t2 = Math.min((ax2-bx1) / sx, t2);
+                if( b.sx1 > a.sx2 ) return false;
+                if( b.sx2 < a.sx1 ) t1 = Math.max((a.sx1-b.sx2) / sx, t1);
+                if( a.sx2 > b.sx1 ) t2 = Math.min((a.sx2-b.sx1) / sx, t2);
             }
             
             if( t1 > t2 )
                 return false;
             
             if( sy < 0.0 ) {
-                if( by2 < ay1 ) return false;
-                if( ay2 < by1 ) t1 = Math.max((ay2-by1) / sy, t1);
-                if( by2 > ay1 ) t2 = Math.min((ay1-by2) / sy, t2);
+                if( b.sy2 < a.sy1 ) return false;
+                if( a.sy2 < b.sy1 ) t1 = Math.max((a.sy2-b.sy1) / sy, t1);
+                if( b.sy2 > a.sy1 ) t2 = Math.min((a.sy1-b.sy2) / sy, t2);
             } else if( sy > 0.0 ) {
-                if( by1 > ay2 ) return false;
-                if( by2 < ay1 ) t1 = Math.max((ay1-by2) / sy, t1);
-                if( ay2 > by1 ) t2 = Math.min((ay2-by1) / sy, t2);
+                if( b.sy1 > a.sy2 ) return false;
+                if( b.sy2 < a.sy1 ) t1 = Math.max((a.sy1-b.sy2) / sy, t1);
+                if( a.sy2 > b.sy1 ) t2 = Math.min((a.sy2-b.sy1) / sy, t2);
             }
             
             if( t1 > t2 )
@@ -233,10 +236,10 @@ package com.strix.collision {
         
         
         public static function containBoxBox( outer:Volume, inner:Volume ) : Boolean {
-            if( inner.x1 < outer.x1 || inner.x2 > outer.x2 )
+            if( inner.sx1 < outer.sx1 || inner.sx2 > outer.sx2 )
                 return false;
             
-            if( inner.y1 < outer.y1 || inner.y2 > outer.y2 )
+            if( inner.sy1 < outer.sy1 || inner.sy2 > outer.sy2 )
                 return false;
             
             return true;
@@ -244,10 +247,10 @@ package com.strix.collision {
         
         
         public static function containBoxCircle( outer:Volume, inner:Volume ) : Boolean {
-            if( inner.x1 < outer.x1 || inner.x2 > outer.x2 )
+            if( inner.sx1 < outer.sx1 || inner.sx2 > outer.sx2 )
                 return false;
             
-            if( inner.y1 < outer.y1 || inner.y2 > outer.y2 )
+            if( inner.sy1 < outer.sy1 || inner.sy2 > outer.sy2 )
                 return false;
             
             return true;
@@ -255,10 +258,10 @@ package com.strix.collision {
         
         
         public static function containBoxPoint( box:Volume, point:Volume ) : Boolean {
-            if( point.x < box.x1 || point.x > box.x2 )
+            if( point.x < box.sx1 || point.x > box.sx2 )
                 return false;
             
-            if( point.y < box.y1 || point.y > box.y2 )
+            if( point.y < box.sy1 || point.y > box.sy2 )
                 return false;
             
             return true;
@@ -266,10 +269,10 @@ package com.strix.collision {
         
         
         public static function containCircleCircle( outer:Volume, inner:Volume ) : Boolean {
-            if( inner.x1 < outer.x1 || inner.x2 > outer.x2 )
+            if( inner.sx1 < outer.sx1 || inner.sx2 > outer.sx2 )
                 return false;
             
-            if( inner.y1 < outer.y1 || inner.y2 > outer.y2 )
+            if( inner.sy1 < outer.sy1 || inner.sy2 > outer.sy2 )
                 return false;
             
             return true;
@@ -280,7 +283,7 @@ package com.strix.collision {
             if( Math.abs(outer.x-inner.x) > outer.rx )
                 return false;
             
-            if( Math.abs(outer.y-inner.y) > outer.ry )
+            if( Math.abs(outer.y-inner.y) > outer.sry )
                 return false;
             
             return true;

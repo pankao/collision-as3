@@ -58,9 +58,8 @@ package com.strix.collision.quadtree {
             if( Quadtree.throwExceptions && !Volume.containBoxBox(volume, object.volume) )
                 throw new IllegalBoundsError("Attempted to insert and object with, or update an object to, illegal bounds.");
             
-            //If object exceeds half-width x half-width, it straddles some axis,
-            //and must be stored here
-            if( object.volume.x2-object.volume.x1 > volume.rx || object.volume.y2-object.volume.y1 > volume.rx )
+            //If object exceeds half-width x half-width, it straddles some axis, and must be stored here
+            if( object.volume.srx > volume.rx || object.volume.sry > volume.ry )
                 return addObjectToSelf(object, readd);
             
             //If maximum depth has been reached, object must be stored here
@@ -81,8 +80,8 @@ package com.strix.collision.quadtree {
                                 new Volume(
                                     quadVolume.x,
                                     quadVolume.y,
-                                    volume.rx*0.5,
-                                    volume.rx*0.5
+                                    quadVolume.rx,
+                                    quadVolume.ry
                                 ),
                                 depth+1, maxDepth,
                                 this, root,
@@ -150,10 +149,15 @@ package com.strix.collision.quadtree {
 
             //Collect all object IDs intersected by the query
             for( var object : uint = 0; object < objects.length; object++ ) {
-                if( Volume.intersectBoxBox(query, objects[object].volume) &&
-                    Mask.interacts(mask, objects[object].mask) ) {
+                if( !Mask.interacts(mask, objects[object].mask) )
+                    continue;
+                
+                if( mode == DISCRETE_MODE && Volume.intersectBoxBox(query, objects[object].volume) )
                     objectIDs.push(objects[object].id);
-                }
+                
+                if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(query, objects[object].volume) )
+                    objectIDs.push(objects[object].id);
+
             }
             
             //Descend into all quadrants intersected by the query
@@ -181,10 +185,11 @@ package com.strix.collision.quadtree {
             
             //Collect all object IDs intersected by the query
             for( var object : uint = 0; object < objects.length; object++ ) {
-                if( Volume.containBoxPoint(objects[object].volume, point) &&
-                    Mask.interacts(mask, objects[object].mask) ) {
+                if( !Mask.interacts(mask, objects[object].mask) )
+                    continue;
+                
+                if( Volume.containBoxPoint(objects[object].volume, point) )
                     objectIDs.push(objects[object].id);
-                }
             }
             
             //Descend into all quadrants intersected by the query
@@ -207,10 +212,28 @@ package com.strix.collision.quadtree {
             //Test all objects at this node against each other
             for( var i : uint = 0; i < objects.length-1; i++ ) {
                 for( var j : uint = i+1; j < objects.length; j++ ) {
-                    if( Volume.intersectBoxBox(objects[i].volume, objects[j].volume) &&
-                        Mask.interacts(objects[i].mask, objects[j].mask) ) {
-                        collisions.push(new Collision(objects[i], objects[j]));
-                    }
+                    if( !Mask.interacts(objects[i].mask, objects[j].mask) )
+                        continue;
+                    
+                    if( mode == DISCRETE_MODE && Volume.intersectBoxBox(objects[i].volume, objects[j].volume) )
+                        collisions.push(
+                            new Collision(
+                                objects[i],
+                                objects[j],
+                                Mask.actions(objects[i].mask, objects[j].mask),
+                                Mask.actions(objects[j].mask, objects[i].mask)
+                            )
+                        );
+                    
+                    if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(objects[i].volume, objects[j].volume) )
+                        collisions.push(
+                            new Collision(
+                                objects[i],
+                                objects[j],
+                                Mask.actions(objects[i].mask, objects[j].mask),
+                                Mask.actions(objects[j].mask, objects[i].mask)
+                            )
+                        );
                 }
             }
             
@@ -220,10 +243,28 @@ package com.strix.collision.quadtree {
             while( ancestor != null ) {
                 for( i = 0; i < objects.length; i++ ) {
                     for( j = 0; j < ancestor.objects.length; j++ ) {
-                        if( Volume.intersectBoxBox(objects[i].volume, ancestor.objects[j].volume) &&
-                            Mask.interacts(objects[i].mask, ancestor.objects[j].mask) ) {
-                            collisions.push(new Collision(objects[i], ancestor.objects[j]));
-                        }
+                        if( !Mask.interacts(objects[i].mask, ancestor.objects[j].mask) )
+                            continue;
+                        
+                        if( mode == DISCRETE_MODE && Volume.intersectBoxBox(objects[i].volume, ancestor.objects[j].volume) )
+                            collisions.push(
+                                new Collision(
+                                    objects[i],
+                                    ancestor.objects[j],
+                                    Mask.actions(objects[i].mask, ancestor.objects[j].mask),
+                                    Mask.actions(ancestor.objects[j].mask, objects[i].mask)
+                                )
+                            );
+                        
+                        if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(objects[i].volume, ancestor.objects[j].volume) )
+                            collisions.push(
+                                new Collision(
+                                    objects[i],
+                                    ancestor.objects[j],
+                                    Mask.actions(objects[i].mask, ancestor.objects[j].mask),
+                                    Mask.actions(ancestor.objects[j].mask, objects[i].mask)
+                                )
+                            );
                     }
                 }
 
