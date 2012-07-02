@@ -32,11 +32,15 @@ package com.strix.collision.spatialhash {
             resolutionLog2  : uint;
             
             
-        public function SpatialHash( resolution:uint, buckets:uint, mode:uint=DISCRETE_MODE ) {
-            //Parameter for hashtable buckets, Parameter for filter size, Default for resolution, Power of 2 check
+        public function SpatialHash(
+            mode:uint=DISCRETE_MODE,
+            resolution:uint=64,
+            buckets:uint=64,
+            filterSize:uint=32768 ) {
+            
             this.mode = mode;
             this.object = new Hashtable;
-            this.filter  = new CountingBloomfilter(32768);
+            this.filter  = new CountingBloomfilter(filterSize);
             this.resolutionLog2 = Math.log(resolution)*Math.LOG2E;
             
             this.bucket = new Vector.<Vector.<Agent>>(buckets, true);

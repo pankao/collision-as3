@@ -26,7 +26,7 @@ package com.strix.collision.quadtree {
             throwExceptions : Boolean = true;
         
             
-        public function Quadtree( volume:Volume, maxDepth:uint=8, mode:uint=Quadtree.DISCRETE_MODE ) {
+        public function Quadtree( volume:Volume, mode:uint=Quadtree.DISCRETE_MODE, maxDepth:uint=8  ) {
             this.rootNode = new TreeNode(volume, 0, maxDepth-1, null, null, mode);
             this.rootNode.root = this.rootNode;
             this.idTreeNode = new Hashtable;
