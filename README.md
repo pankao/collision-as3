@@ -11,7 +11,8 @@ Broadphase collision detection library for ActionScript 3
 - Manage objects through easy-to-extend Agent class
 - Generic bounding volumes
 - 16 collision groups
-- Object-oriented system decoupled from physics and the display list
+- Object-oriented system
+- Integrates with [Starling](http://gamua.com/starling/) and the display list
 
 
 ## Getting started
