@@ -12,7 +12,7 @@ Broadphase collision detection library for ActionScript 3
 - Generic bounding volumes
 - 16 collision groups
 - Object-oriented system
-- Integrates with [Starling](http://gamua.com/starling/) and the display list
+- Integrates with [Starling](http://gamua.com/starling/)
 
 
 ## Getting started
@@ -30,3 +30,6 @@ Working with objects:
  - [Volume](https://github.com/martinkallman/collision-as3/wiki/Volume-class)
  - [Mask](https://github.com/martinkallman/collision-as3/wiki/Mask-class)
  - [Collision](https://github.com/martinkallman/collision-as3/wiki/Collision-class)
+
+Working with 3rd party code:
+ - [Integrating with Starling](https://github.com/martinkallman/collision-as3/wiki/Integrating-with-starling)
