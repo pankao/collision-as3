@@ -24,7 +24,7 @@ package com.strix.collision.spatialhash {
             mode            : uint,
             object          : Hashtable,
             filter          : CountingBloomfilter,
-            bucket          : Vector.<Vector.<Agent>>,
+            bucket          : Vector.<Vector.<InternalAgent>>,
             bucketMod       : uint,
             bucketTimestamp : Vector.<uint>,
             timestamp       : uint, 
@@ -43,10 +43,10 @@ package com.strix.collision.spatialhash {
             this.filter  = new CountingBloomfilter(filterSize);
             this.resolutionLog2 = Math.log(resolution)*Math.LOG2E;
             
-            this.bucket = new Vector.<Vector.<Agent>>(buckets, true);
+            this.bucket = new Vector.<Vector.<InternalAgent>>(buckets, true);
             
             for( var i : uint = 0; i < buckets; i++ ) {
-                this.bucket[i] = new Vector.<Agent>;
+                this.bucket[i] = new Vector.<InternalAgent>;
             }
             
             this.bucketTimestamp = new Vector.<uint>(buckets, true);
@@ -145,51 +145,56 @@ package com.strix.collision.spatialhash {
         }
         
         
-        public function addObject( collidable:Agent ) : void {
-            if( collidable.volume.x1 < 0 ||
-                collidable.volume.y1 < 0 ||
-                collidable.volume.x2 >> resolutionLog2 > 65535 ||
-                collidable.volume.y2 >> resolutionLog2 > 65535 ) {
-                    throw new IllegalBoundsError("Object with ID " + collidable.id + " is out of bounds");
+        public function addObject( agent:Agent ) : void {
+            
+            if( agent.x1 < 0 ||
+                agent.y1 < 0 ||
+                agent.x2 >> resolutionLog2 > 65535 ||
+                agent.y2 >> resolutionLog2 > 65535 ) {
+                    throw new IllegalBoundsError("Object with ID " + agent.id + " is out of bounds");
             }
             
-            if( throwExceptions && object[collidable.id] != null )
-                throw new InvalidObjectError("Object with ID " + collidable.id + " already exists.");
+            if( throwExceptions && object[agent.id] != null )
+                throw new InvalidObjectError("Object with ID " + agent.id + " already exists.");
 
-            collidable.cells = volumeToCells(collidable.volume);
-            collidable.buckets = cellsToBuckets(collidable.cells);
+            var internalAgent : InternalAgent = new InternalAgent;
             
-            collidable.boundsX1 = collidable.volume.x1 >> resolutionLog2;
-            collidable.boundsX2 = collidable.volume.x2 >> resolutionLog2;
-            collidable.boundsY1 = collidable.volume.y1 >> resolutionLog2;
-            collidable.boundsY2 = collidable.volume.y2 >> resolutionLog2;
+            internalAgent.agent = agent;
             
-            var numBuckets : uint = collidable.buckets.length;
+            internalAgent.cells = volumeToCells(internalAgent.agent);
+            internalAgent.buckets = cellsToBuckets(internalAgent.cells);
+            
+            internalAgent.boundsX1 = internalAgent.agent.x1 >> resolutionLog2;
+            internalAgent.boundsX2 = internalAgent.agent.x2 >> resolutionLog2;
+            internalAgent.boundsY1 = internalAgent.agent.y1 >> resolutionLog2;
+            internalAgent.boundsY2 = internalAgent.agent.y2 >> resolutionLog2;
+            
+            var numBuckets : uint = internalAgent.buckets.length;
             
             for( var i : uint = 0; i < numBuckets; i++ ) {
-                bucket[collidable.buckets[i]].push(collidable);
+                bucket[internalAgent.buckets[i]].push(internalAgent);
             }
             
-            collidable.onChange = function( notification:uint, data:* ) : void {
-                updateObject(collidable);
+            internalAgent.onChange = function( notification:uint, data:* ) : void {
+                updateObject(internalAgent);
             };
             
             if( mode == DISCRETE_MODE ) {
-                collidable.volume.onChange.addListener(
+                internalAgent.agent.onChange.addListener(
                     Volume.ON_MOVE | Volume.ON_RESIZE | Volume.ON_TRANSLATE,
-                    collidable.onChange,
+                    internalAgent.onChange,
                     this
                 );
             } else if( mode == CONTINUOUS_MODE ) {
-                collidable.volume.onChange.addListener(
+                internalAgent.agent.onChange.addListener(
                     Volume.ON_MOVE | Volume.ON_RESIZE | Volume.ON_SWEEP,
-                    collidable.onChange,
+                    internalAgent.onChange,
                     this
                 );
             }
             
-            object[collidable.id] = collidable;
-            addToFilter(collidable.cells);
+            object[internalAgent.agent.id] = internalAgent;
+            addToFilter(internalAgent.cells);
         }
       
         
@@ -197,40 +202,40 @@ package com.strix.collision.spatialhash {
             if( throwExceptions && object[collidable.id] == null )
                 throw new InvalidObjectError("Object with ID " + collidable.id + " does not exist.");
             
-            var collidable  : Agent = object[collidable.id],
-                numBuckets  : uint = collidable.buckets.length,
+            var internalAgent : InternalAgent = object[collidable.id],
+                numBuckets  : uint = internalAgent.buckets.length,
                 bucketIndex : uint,
                 bucketSize  : uint;
             
             for( var i : uint = 0; i < numBuckets; i++ ) {
-                bucketIndex = collidable.buckets[i];
+                bucketIndex = internalAgent.buckets[i];
                 bucketSize = bucket[bucketIndex].length;
                 
                 for( var j : uint = 0; j < bucketSize; j++ ) {
-                    if( bucket[bucketIndex][j].id == collidable.id ) {
+                    if( bucket[bucketIndex][j].agent.id == collidable.id ) {
                         bucket[bucketIndex].splice(j, 1);
                         break;
                     }
                 }
             }
             
-            deleteFromFilter(collidable.cells);
-            collidable.volume.onChange.removeListener(Notification.ALL, collidable.onChange);
+            deleteFromFilter(internalAgent.cells);
+            internalAgent.agent.onChange.removeListener(Notification.ALL, internalAgent.onChange);
             delete object[collidable.id];                
         }
             
    
-        private function updateObject( collidable:Agent ) : void {
-            var x1 : uint = collidable.volume.x1 >> resolutionLog2,
-                x2 : uint = collidable.volume.x2 >> resolutionLog2,
-                y1 : uint = collidable.volume.y1 >> resolutionLog2,
-                y2 : uint = collidable.volume.y2 >> resolutionLog2;
+        private function updateObject( collidable:InternalAgent ) : void {
+            var x1 : uint = collidable.agent.x1 >> resolutionLog2,
+                x2 : uint = collidable.agent.x2 >> resolutionLog2,
+                y1 : uint = collidable.agent.y1 >> resolutionLog2,
+                y2 : uint = collidable.agent.y2 >> resolutionLog2;
             
             var changed : Boolean =
-                x1 != collidable.volume.x1 ||
-                x2 != collidable.volume.x2 ||
-                y1 != collidable.volume.y1 ||
-                y2 != collidable.volume.y2;
+                x1 != collidable.agent.x1 ||
+                x2 != collidable.agent.x2 ||
+                y1 != collidable.agent.y1 ||
+                y2 != collidable.agent.y2;
             
             if( !changed )
                 return;
@@ -244,7 +249,7 @@ package com.strix.collision.spatialhash {
                 bucketSize = bucket[bucketIndex].length;
                 
                 for( var j : uint = 0; j < bucketSize; j++ ) {
-                    if( bucket[bucketIndex][j].id == collidable.id ) {
+                    if( bucket[bucketIndex][j].agent.id == collidable.agent.id ) {
                         bucket[bucketIndex].splice(j, 1);
                         break;
                     }
@@ -253,7 +258,7 @@ package com.strix.collision.spatialhash {
             
             deleteFromFilter(collidable.cells);
             
-            collidable.cells = volumeToCells(collidable.volume);
+            collidable.cells = volumeToCells(collidable.agent);
             collidable.buckets = cellsToBuckets(collidable.cells);
             
             collidable.boundsX1 = x1;
@@ -286,12 +291,12 @@ package com.strix.collision.spatialhash {
                     }
                     
                     if( mode == DISCRETE_MODE &&
-                        Volume.intersectBoxBox(volume, object.volume) ) {
+                        Volume.intersectBoxBox(volume, object) ) {
                             collisions.push(object);
                     }
                         
                     if( mode == CONTINUOUS_MODE &&
-                        Volume.intersectSweptBoxBox(volume, object.volume) ) {
+                        Volume.intersectSweptBoxBox(volume, object) ) {
                             collisions.push(object);
                     }
                 }
@@ -333,7 +338,7 @@ package com.strix.collision.spatialhash {
                     continue;
                 }
                 
-                if( Volume.containBoxPoint(object.volume, point) ) {
+                if( Volume.containBoxPoint(object, point) ) {
                     collisions.push(object);
                 }
             }
@@ -360,33 +365,33 @@ package com.strix.collision.spatialhash {
                 
                 for( var j : uint = 0; j < objects-1; j++ ) {
                     for( var k : uint = j+1; k < objects; k++ ) {
-                        var objectA : Agent = bucket[i][j],
-                            objectB : Agent = bucket[i][k];
+                        var objectA : InternalAgent = bucket[i][j],
+                            objectB : InternalAgent = bucket[i][k];
                         
-                        if( !Mask.interacts(objectA.mask, objectB.mask) ) {
+                        if( !Mask.interacts(objectA.agent.mask, objectB.agent.mask) ) {
                             continue;
                         }
                         
                         if( mode == DISCRETE_MODE &&
-                            Volume.intersectBoxBox(objectA.volume, objectB.volume) ) {
+                            Volume.intersectBoxBox(objectA.agent, objectB.agent) ) {
                                 collisions.push(
                                     new Collision(
-                                        objectA,
-                                        objectB,
-                                        Mask.actions(objectA.mask, objectB.mask),
-                                        Mask.actions(objectB.mask, objectA.mask)
+                                        objectA.agent,
+                                        objectB.agent,
+                                        Mask.actions(objectA.agent.mask, objectB.agent.mask),
+                                        Mask.actions(objectB.agent.mask, objectA.agent.mask)
                                     )
                                 );
                         }
                         
                         if( mode == CONTINUOUS_MODE &&
-                            Volume.intersectSweptBoxBox(objectA.volume, objectB.volume) ) {
+                            Volume.intersectSweptBoxBox(objectA.agent, objectB.agent) ) {
                                 collisions.push(
                                     new Collision(
-                                        objectA,
-                                        objectB,
-                                        Mask.actions(objectA.mask, objectB.mask),
-                                        Mask.actions(objectB.mask, objectA.mask)
+                                        objectA.agent,
+                                        objectB.agent,
+                                        Mask.actions(objectA.agent.mask, objectB.agent.mask),
+                                        Mask.actions(objectB.agent.mask, objectA.agent.mask)
                                     )
                                 );
                         }

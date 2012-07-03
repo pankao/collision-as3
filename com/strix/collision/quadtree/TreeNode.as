@@ -55,11 +55,11 @@ package com.strix.collision.quadtree {
         
         
         public function addObject( object:Agent, readd:Boolean=false ) : TreeNode {
-            if( Quadtree.throwExceptions && !Volume.containBoxBox(volume, object.volume) )
+            if( Quadtree.throwExceptions && !Volume.containBoxBox(volume, object) )
                 throw new IllegalBoundsError("Attempted to insert and object with, or update an object to, illegal bounds.");
             
             //If object exceeds half-width x half-width, it straddles some axis, and must be stored here
-            if( object.volume.srx > volume.rx || object.volume.sry > volume.ry )
+            if( object.srx > volume.rx || object.sry > volume.ry )
                 return addObjectToSelf(object, readd);
             
             //If maximum depth has been reached, object must be stored here
@@ -74,7 +74,7 @@ package com.strix.collision.quadtree {
                 for( var qx : uint = 0; qx < 2; qx++ ) {
                     quadVolume.moveTo((volume.x-quadVolume.rx)+qx*volume.rx, (volume.y-quadVolume.ry)+qy*volume.rx);
   
-                    if( Volume.containBoxBox(quadVolume, object.volume) ) {
+                    if( Volume.containBoxBox(quadVolume, object) ) {
                         if( children[quad] == null ) {
                             children[quad] = TreeNodePool.getObject(
                                 new Volume(
@@ -108,7 +108,7 @@ package com.strix.collision.quadtree {
             objects.push(object);
             objectChanged.push(
                 function() : void {
-                    if( Volume.containBoxBox(volume, object.volume) ) {
+                    if( Volume.containBoxBox(volume, object) ) {
                         //Object is still contained by self
                         if( this !== addObject(object, READD) )
                             deleteObject(object);
@@ -121,13 +121,13 @@ package com.strix.collision.quadtree {
             );
             
             if( mode == DISCRETE_MODE ) {
-                object.volume.onChange.addListener(
+                object.onChange.addListener(
                     Volume.ON_MOVE | Volume.ON_RESIZE | Volume.ON_TRANSLATE,
                     objectChanged[objectChanged.length-1],
                     this
                 );
             } else if( mode == CONTINUOUS_MODE ) {
-                object.volume.onChange.addListener(
+                object.onChange.addListener(
                     Volume.ON_MOVE | Volume.ON_RESIZE | Volume.ON_SWEEP,
                     objectChanged[objectChanged.length-1],
                     this
@@ -138,7 +138,7 @@ package com.strix.collision.quadtree {
         }
         
         
-        public function queryVolume( query:Volume, mask:uint, objectIDs:Vector.<Agent> ) : void {
+        public function queryVolume( query:Volume, mask:uint, collisions:Vector.<Agent> ) : void {
             var quad       : uint,
                 quadVolume : Volume = new Volume(
                     volume.x-volume.rx*0.5,
@@ -152,11 +152,11 @@ package com.strix.collision.quadtree {
                 if( !Mask.interacts(mask, objects[object].mask) )
                     continue;
                 
-                if( mode == DISCRETE_MODE && Volume.intersectBoxBox(query, objects[object].volume) )
-                    objectIDs.push(objects[object].id);
+                if( mode == DISCRETE_MODE && Volume.intersectBoxBox(query, objects[object]) )
+                    collisions.push(objects[object]);
                 
-                if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(query, objects[object].volume) )
-                    objectIDs.push(objects[object].id);
+                if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(query, objects[object]) )
+                    collisions.push(objects[object]);
 
             }
             
@@ -166,7 +166,7 @@ package com.strix.collision.quadtree {
                     quadVolume.translate(qx*volume.rx, qy*volume.rx);
 
                     if( children[quad] != null && Volume.intersectBoxBox(volume, quadVolume) )
-                        children[quad].queryVolume(query, mask, objectIDs);
+                        children[quad].queryVolume(query, mask, collisions);
                     
                     quad++;
                 }
@@ -174,7 +174,7 @@ package com.strix.collision.quadtree {
         }
         
         
-        public function queryPoint( point:Volume, mask:uint, objectIDs:Vector.<Agent> ) : void {
+        public function queryPoint( point:Volume, mask:uint, collisions:Vector.<Agent> ) : void {
             var quad       : uint,
                 quadVolume : Volume = new Volume(
                     volume.x-volume.rx*0.5,
@@ -188,8 +188,8 @@ package com.strix.collision.quadtree {
                 if( !Mask.interacts(mask, objects[object].mask) )
                     continue;
                 
-                if( Volume.containBoxPoint(objects[object].volume, point) )
-                    objectIDs.push(objects[object].id);
+                if( Volume.containBoxPoint(objects[object], point) )
+                    collisions.push(objects[object]);
             }
             
             //Descend into all quadrants intersected by the query
@@ -199,7 +199,7 @@ package com.strix.collision.quadtree {
                     
                     if( children[quad] != null &&
                         Volume.containBoxPoint(quadVolume, point) ) {
-                            children[quad].queryPoint(point, mask, objectIDs);
+                            children[quad].queryPoint(point, mask, collisions);
                     }
                     
                     quad++;
@@ -215,7 +215,7 @@ package com.strix.collision.quadtree {
                     if( !Mask.interacts(objects[i].mask, objects[j].mask) )
                         continue;
                     
-                    if( mode == DISCRETE_MODE && Volume.intersectBoxBox(objects[i].volume, objects[j].volume) )
+                    if( mode == DISCRETE_MODE && Volume.intersectBoxBox(objects[i], objects[j]) )
                         collisions.push(
                             new Collision(
                                 objects[i],
@@ -225,7 +225,7 @@ package com.strix.collision.quadtree {
                             )
                         );
                     
-                    if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(objects[i].volume, objects[j].volume) )
+                    if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(objects[i], objects[j]) )
                         collisions.push(
                             new Collision(
                                 objects[i],
@@ -246,7 +246,7 @@ package com.strix.collision.quadtree {
                         if( !Mask.interacts(objects[i].mask, ancestor.objects[j].mask) )
                             continue;
                         
-                        if( mode == DISCRETE_MODE && Volume.intersectBoxBox(objects[i].volume, ancestor.objects[j].volume) )
+                        if( mode == DISCRETE_MODE && Volume.intersectBoxBox(objects[i], ancestor.objects[j]) )
                             collisions.push(
                                 new Collision(
                                     objects[i],
@@ -256,7 +256,7 @@ package com.strix.collision.quadtree {
                                 )
                             );
                         
-                        if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(objects[i].volume, ancestor.objects[j].volume) )
+                        if( mode == CONTINUOUS_MODE && Volume.intersectSweptBoxBox(objects[i], ancestor.objects[j]) )
                             collisions.push(
                                 new Collision(
                                     objects[i],
@@ -282,7 +282,7 @@ package com.strix.collision.quadtree {
         public function deleteObject( object:Agent ) : void {
             for( var i : uint = 0; i < objects.length; i++ ) {
                 if( objects[i].id == object.id ) {
-                    objects[i].volume.onChange.removeListener(Notification.ALL, objectChanged[i]);
+                    objects[i].onChange.removeListener(Notification.ALL, objectChanged[i]);
                     objects.splice(i, 1);
                     return;
                 }

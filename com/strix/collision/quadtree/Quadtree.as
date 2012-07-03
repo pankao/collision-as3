@@ -38,7 +38,7 @@ package com.strix.collision.quadtree {
             if( throwExceptions && idTreeNode[agent.id] != null )
                 throw new InvalidObjectError("Object with ID " + agent.id + " already exists.");
             
-            if( throwExceptions && !Volume.containBoxBox(rootNode.volume, agent.volume) )
+            if( throwExceptions && !Volume.containBoxBox(rootNode.volume, agent) )
                 throw new IllegalBoundsError("Object with ID " + agent.id + " has illegal bounds.");
             
             idTreeNode[agent.id] = rootNode.addObject(agent);
