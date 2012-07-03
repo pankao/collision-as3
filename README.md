@@ -4,15 +4,14 @@ collision-as3
 Broadphase collision detection library for ActionScript 3
 
 ## Features
-- Spatially partitioned containers
+ - Object-oriented system
+ - Continuous and discrete collision detection
+ - Spatially partitioned containers
    - Quadtree
    - Spatial Hash Grid
-- Continuous and discrete collision detection
-- Manage objects through easy-to-extend Agent class
-- Generic bounding volumes
-- 16 collision groups
-- Object-oriented system
-- Integrates with [Starling](http://gamua.com/starling/)
+ - Generic bounding volume
+ - Manage objects through easy-to-extend Agent class
+ - Plays nicely with [Starling](http://gamua.com/starling/)
 
 
 ## Getting started
