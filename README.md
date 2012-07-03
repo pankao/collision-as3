@@ -16,9 +16,42 @@ Broadphase collision detection library for ActionScript 3
 
 
 ## Getting started
+### Hello world!
+```actionscript
+//Create spatial containers
+var quadtree    : Quadtree = new Quadtree(new Volume(500.0, 500.0, 500.0));
+var spatialHash : SpatialHash = new SpatialHash();
+
+//Create two agents
+var agentA : Agent = new Agent(1, Mask.ALL, 50.0, 50.0, 10.0));
+var agentB : Agent = new Agent(2, Mask.ALL, 80.0, 50.0, 10.0));
+
+//Add agents to containers
+quadtree.addAgent(agentA);
+quadtree.addAgent(agentB);
+spatialHash.addAgent(agentA);
+spatialHash.addAgent(agentB);
+
+//Manipulate agents
+agentA.translate(7.5, 0.0);
+agentB.translate(-7.5, 0.0);
+
+//Handle collisions
+for each( var collision : Collision in spatialHash.queryCollisions() ) {
+   //...
+}
+
+//Issue some aribtrary queries
+var queryA : Vector.<Agent> = quadtree.queryVolume(new Volume(65.0, 50.0, 20.0));
+var queryB : Vector.<Agent> = spatialHash.queryPoint(new Volume(65.0, 50.0));
+
+//Clean up
+quadtree.deleteAgent(agentA);
+quadtree.deleteAgent(agentB);
+spatialHash.deleteAgent(agentA);
+spatialHash.deleteAgent(agentB);
 ```
-TODO
-```
+
 
 ## Documentation
 Working with containers:
