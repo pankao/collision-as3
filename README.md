@@ -1,7 +1,10 @@
 collision-as3
 =============
 
-Broadphase collision detection library for ActionScript 3
+Broadphase collision detection library for ActionScript 3.
+
+Status: Please note that this is still in Alpha: documentation might be slightly out of date, certain unit tests are missing.
+
 
 ## Features
  - Object-oriented system
@@ -11,7 +14,7 @@ Broadphase collision detection library for ActionScript 3
    - Spatial Hash Grid
  - Generic bounding volume
  - Manage objects through easy-to-extend Agent class
- - Plays nicely with [Starling](http://gamua.com/starling/)
+ - Starling integration (work in progress)
 
 
 ## Getting started
