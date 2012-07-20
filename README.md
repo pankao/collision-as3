@@ -5,6 +5,12 @@ Broadphase collision detection library for ActionScript 3.
 
 Status: Please note that this is still in Alpha: documentation might be slightly out of date, certain unit tests are missing.
 
+<br>
+
+## News
+ - 2012-07-20: A new, hybrid container is in the works, which will combine quadtrees, spatial hashing and SAP
+ 
+<br>
 
 ## Features
  - Object-oriented system
