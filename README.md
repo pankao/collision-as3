@@ -8,6 +8,7 @@ Status: Please note that this is still in Alpha: documentation might be slightly
 <br>
 
 ## News
+ - 2012-07-31: Alchemy 2 port planned
  - 2012-07-20: A new, hybrid container is in the works, which will combine quadtrees, spatial hashing and SAP
  
 <br>
