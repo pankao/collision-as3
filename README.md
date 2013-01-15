@@ -8,6 +8,7 @@ Status: Please note that this is still in Alpha: documentation might be slightly
 <br>
 
 ## News
+ - 2013-01-15: Project is still alive
  - 2012-07-31: Alchemy 2 port planned
  - 2012-07-20: A new, hybrid container is in the works, which will combine quadtrees, spatial hashing and SAP
  
@@ -23,6 +24,7 @@ Status: Please note that this is still in Alpha: documentation might be slightly
  - Manage objects through easy-to-extend Agent class
  - Starling integration (work in progress)
 
+<br>
 
 ## Getting started
 ### Hello world!
